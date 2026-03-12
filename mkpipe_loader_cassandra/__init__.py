@@ -8,7 +8,7 @@ from mkpipe.spark.base import BaseLoader
 from mkpipe.models import ConnectionConfig, ExtractResult, TableConfig
 from mkpipe.utils import get_logger
 
-JAR_PACKAGES = ['com.datastax.spark:spark-cassandra-connector_2.12:3.5.1']
+JAR_PACKAGES = ['com.datastax.spark:spark-cassandra-connector_2.13:3.5.1']
 
 logger = get_logger(__name__)
 
