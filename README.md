@@ -44,6 +44,26 @@ pipelines:
 
 ---
 
+## Write Strategy
+
+Control how data is written to Cassandra:
+
+```yaml
+      - name: public.events
+        target_name: stg_events
+        write_strategy: upsert       # append | replace | upsert
+```
+
+| Strategy | Cassandra Behavior |
+|---|---|
+| `append` | Insert via Spark Cassandra Connector in `append` mode (default for incremental). Cassandra `INSERT` is naturally idempotent — rows with the same primary key are overwritten. |
+| `replace` | Insert via Spark Cassandra Connector in `overwrite` mode (default for full) |
+| `upsert` | Same as `append` — Cassandra `INSERT` is a natural upsert by primary key |
+
+> **Note:** Cassandra uses its own primary key for upsert semantics. `write_key` is not required — the table's primary key is used automatically.
+
+---
+
 ## Write Parallelism
 
 `write_partitions` coalesces the DataFrame to N partitions before writing, reducing the number of concurrent connections to Cassandra:
@@ -71,6 +91,7 @@ pipelines:
 | `target_name` | string | required | Cassandra destination table name |
 | `replication_method` | `full` / `incremental` | `full` | Replication strategy |
 | `write_partitions` | int | — | Coalesce DataFrame to N partitions before writing |
+| `write_strategy` | string | — | `append`, `replace`, `upsert` |
 | `dedup_columns` | list | — | Columns used for `mkpipe_id` hash deduplication |
 | `tags` | list | `[]` | Tags for selective pipeline execution |
 | `pass_on_error` | bool | `false` | Skip table on error instead of failing |

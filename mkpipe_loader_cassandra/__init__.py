@@ -4,8 +4,10 @@ from datetime import datetime
 from pyspark.sql import functions as F
 from pyspark.sql.types import TimestampType
 
+from mkpipe.exceptions import ConfigError, LoadError
+from mkpipe.models import ConnectionConfig, ExtractResult, TableConfig, WriteStrategy
 from mkpipe.spark.base import BaseLoader
-from mkpipe.models import ConnectionConfig, ExtractResult, TableConfig
+from mkpipe.strategy import resolve_write_strategy
 from mkpipe.utils import get_logger
 
 JAR_PACKAGES = ['com.datastax.spark:spark-cassandra-connector_2.13:3.5.1']
@@ -45,15 +47,36 @@ class CassandraLoader(BaseLoader, variant='cassandra'):
         if table.write_partitions:
             df = df.coalesce(table.write_partitions)
 
-        logger.info({'table': target_name, 'status': 'loading'})
+        strategy = resolve_write_strategy(table, data)
 
-        (
-            df.write.format('org.apache.spark.sql.cassandra')
-            .option('keyspace', self.keyspace)
-            .option('table', target_name)
-            .mode(data.write_mode)
-            .save()
-        )
+        logger.info({
+            'table': target_name,
+            'status': 'loading',
+            'write_strategy': strategy.value,
+        })
+
+        try:
+            match strategy:
+                case WriteStrategy.APPEND | WriteStrategy.UPSERT:
+                    write_mode = 'append'
+                case WriteStrategy.REPLACE:
+                    write_mode = 'overwrite'
+                case _:
+                    raise ConfigError(
+                        f"Cassandra loader does not support write_strategy: {strategy.value}"
+                    )
+
+            (
+                df.write.format('org.apache.spark.sql.cassandra')
+                .option('keyspace', self.keyspace)
+                .option('table', target_name)
+                .mode(write_mode)
+                .save()
+            )
+        except (ConfigError, LoadError):
+            raise
+        except Exception as e:
+            raise LoadError(f"Failed to write '{target_name}': {e}") from e
 
         df.unpersist()
         gc.collect()
