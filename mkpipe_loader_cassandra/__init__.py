@@ -7,6 +7,7 @@ from pyspark.sql.types import TimestampType
 from mkpipe.exceptions import ConfigError, LoadError
 from mkpipe.models import ConnectionConfig, ExtractResult, TableConfig, WriteStrategy
 from mkpipe.spark.base import BaseLoader
+from mkpipe.spark.columns import normalize_column_names
 from mkpipe.strategy import resolve_write_strategy
 from mkpipe.utils import get_logger
 
@@ -44,6 +45,7 @@ class CassandraLoader(BaseLoader, variant='cassandra'):
         if col_name in df.columns:
             df = df.drop(col_name)
         df = df.withColumn(col_name, F.lit(etl_time).cast(TimestampType()))
+        df = normalize_column_names(df, self.column_name_case)
 
         if table.write_partitions:
             df = df.coalesce(table.write_partitions)
