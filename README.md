@@ -57,7 +57,7 @@ Control how data is written to Cassandra:
 | Strategy | Cassandra Behavior |
 |---|---|
 | `append` | Insert via Spark Cassandra Connector in `append` mode (default for incremental). Cassandra `INSERT` is naturally idempotent — rows with the same primary key are overwritten. |
-| `replace` | Insert via Spark Cassandra Connector in `overwrite` mode (default for full) |
+| `replace` | Insert via Spark Cassandra Connector in `overwrite` mode (default for full). Use `if_exists: append` to preserve existing table |
 | `upsert` | Same as `append` — Cassandra `INSERT` is a natural upsert by primary key |
 
 > **Note:** Cassandra uses its own primary key for upsert semantics. `write_key` is not required — the table's primary key is used automatically.
@@ -92,6 +92,7 @@ Control how data is written to Cassandra:
 | `replication_method` | `full` / `incremental` | `full` | Replication strategy |
 | `write_partitions` | int | — | Coalesce DataFrame to N partitions before writing |
 | `write_strategy` | string | — | `append`, `replace`, `upsert` |
+| `if_exists` | string | — | `replace` (overwrite) or `append` (preserve table). Inherits from settings |
 | `dedup_columns` | list | — | Columns used for `mkpipe_id` hash deduplication |
 | `tags` | list | `[]` | Tags for selective pipeline execution |
 | `pass_on_error` | bool | `false` | Skip table on error instead of failing |
