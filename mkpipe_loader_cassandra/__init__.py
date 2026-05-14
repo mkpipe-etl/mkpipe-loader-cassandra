@@ -25,6 +25,23 @@ class CassandraLoader(BaseLoader, variant='cassandra'):
         self.password = connection.password
         self.keyspace = connection.database
 
+    def _truncate_table(self, table_name: str) -> None:
+        """Truncate a Cassandra table, preserving its schema."""
+        from cassandra.cluster import Cluster
+        from cassandra.auth import PlainTextAuthProvider
+
+        auth = None
+        if self.username and self.password:
+            auth = PlainTextAuthProvider(username=self.username, password=self.password)
+        cluster = Cluster([self.host], port=self.port, auth_provider=auth)
+        session = cluster.connect(self.keyspace)
+        try:
+            session.execute(f'TRUNCATE {table_name}')
+            logger.info({'table': table_name, 'status': 'truncated'})
+        finally:
+            session.shutdown()
+            cluster.shutdown()
+
     def load(self, table: TableConfig, data: ExtractResult, spark) -> None:
         target_name = table.target_name
         df = data.df
@@ -63,7 +80,11 @@ class CassandraLoader(BaseLoader, variant='cassandra'):
                 case WriteStrategy.APPEND | WriteStrategy.UPSERT:
                     write_mode = 'append'
                 case WriteStrategy.REPLACE:
-                    write_mode = 'append' if self.if_exists == 'append' else 'overwrite'
+                    if self.if_exists == 'append':
+                        self._truncate_table(target_name)
+                        write_mode = 'append'
+                    else:
+                        write_mode = 'overwrite'
                 case _:
                     raise ConfigError(
                         f"Cassandra loader does not support write_strategy: {strategy.value}"
